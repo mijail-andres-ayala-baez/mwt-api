@@ -4,9 +4,11 @@ import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 import { DatabaseModule } from './database/database.module.js';
 import { GenresModule } from './genres/genres.module.js';
+import { ResourcesModule } from './resources/resources.module.js';
 import { SessionsModule } from './sessions/sessions.module.js';
 import { TeachersModule } from './teachers/teachers.module.js';
 import { UsersModule } from './users/users.module.js';
+import { VideosModule } from './videos/videos.module.js';
 
 @Module({
   imports: [
@@ -17,6 +19,8 @@ import { UsersModule } from './users/users.module.js';
     TeachersModule,
     UsersModule,
     SessionsModule,
+    ResourcesModule,
+    VideosModule,
   ],
   controllers: [AppController],
   providers: [AppService],
