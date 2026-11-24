@@ -93,6 +93,55 @@ export class UsersService {
     }
   }
 
+  // First sign-in: the account lives in Cognito, so the row in users is
+  // created here from the data inside the token
+  async findOrCreateByCognito(data: {
+    cognitoId: string;
+    name: string;
+    email: string;
+  }): Promise<User> {
+    const existing = await this.findByCognitoId(data.cognitoId);
+
+    if (existing) {
+      return existing;
+    }
+
+    try {
+      // DO NOTHING covers two requests creating the same user at the same time
+      const result = await this.db.query<User>(
+        `INSERT INTO users (cognito_id, name, email)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (cognito_id) DO NOTHING
+         RETURNING ${USER_COLUMNS}`,
+        [data.cognitoId, data.name, data.email],
+      );
+
+      if (result.rows.length > 0) {
+        return result.rows[0];
+      }
+    } catch (error) {
+      throw translateError(error);
+    }
+
+    // Another request created the row first: read the one it made
+    const created = await this.findByCognitoId(data.cognitoId);
+
+    if (!created) {
+      throw new ConflictException('The user could not be created');
+    }
+
+    return created;
+  }
+
+  private async findByCognitoId(cognitoId: string): Promise<User | undefined> {
+    const result = await this.db.query<User>(
+      `SELECT ${USER_COLUMNS} FROM users WHERE cognito_id = $1`,
+      [cognitoId],
+    );
+
+    return result.rows[0];
+  }
+
   async update(id: number, dto: UpdateUserDto): Promise<User> {
     try {
       // COALESCE keeps the stored value for every field the client did not send
