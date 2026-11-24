@@ -1,0 +1,12 @@
+# Files Docker does not copy into the image
+node_modules
+dist
+coverage
+.git
+.env
+.env.*
+!.env.example
+*.log
+*.zip
+db
+README.md
