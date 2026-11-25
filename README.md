@@ -106,7 +106,7 @@ No hace falta instalar Node.js ni PostgreSQL: van dentro de los contenedores.
 ### Paso 2. Descarga el proyecto
 
 ```bash
-git clone https://github.com/MusicWellTech/mwt-api.git
+git clone https://github.com/mijail-andres-ayala-baez/mwt-api.git
 cd mwt-api
 ```
 
