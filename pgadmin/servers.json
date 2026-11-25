@@ -1,0 +1,13 @@
+{
+  "Servers": {
+    "1": {
+      "Name": "MWT local (Docker)",
+      "Group": "MWT",
+      "Host": "db",
+      "Port": 5432,
+      "MaintenanceDB": "mwt_dev",
+      "Username": "postgres",
+      "SSLMode": "prefer"
+    }
+  }
+}
