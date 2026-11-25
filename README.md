@@ -124,7 +124,7 @@ docker compose up -d --build
 
 La primera vez tarda unos minutos, porque descarga PostgreSQL, Node y pgAdmin y construye la API. Las siguientes veces tarda segundos.
 
-Al arrancar por primera vez, la base de datos se crea sola: **se ejecutan los scripts de `db/` en orden** y quedan todas las tablas y las 18 sesiones experimentales cargadas.
+Al arrancar por primera vez, la base de datos se crea sola: **se ejecutan los scripts de `db/` en orden** y quedan todas las tablas, las 18 sesiones experimentales, los 6 géneros de Theory Lab y un usuario de prueba (`id` 1).
 
 ### Paso 4. Comprueba que está en marcha
 
@@ -154,12 +154,8 @@ Abre **http://localhost:4000/docs**. Es la documentación interactiva: aparecen 
 Una prueba completa, en este orden:
 
 1. `GET /experimental-sessions` → deben salir las 18 sesiones.
-2. `POST /users` con:
-   ```json
-   {"cognitoId": "test-1", "name": "Prueba", "email": "prueba@test.com"}
-   ```
-   Apunta el `id` que devuelve (por ejemplo `1`).
-3. `POST /session-attempts` con (cambia el `1` por el `id` del paso anterior):
+2. `GET /users` → debe salir el usuario de prueba, `Usuario de Prueba`, con `id: 1`.
+3. `POST /session-attempts` con:
    ```json
    {"userId": 1, "sessionId": "box-breathing"}
    ```
@@ -171,7 +167,7 @@ Una prueba completa, en este orden:
 
 > En los ejemplos, escribe **números reales** en `userId`. Si envías algo que no es JSON válido, la API responde `400`.
 
-> Los números de `id` no siempre empiezan en 1. PostgreSQL no reutiliza un número aunque un intento de guardado falle. Usa siempre el `id` que te devuelve la API.
+> Los números de `id` de lo que crees tú no siempre son consecutivos: PostgreSQL no reutiliza un número aunque un intento de guardado falle. Usa siempre el `id` que te devuelve la API.
 
 ### Los datos: pgAdmin
 
@@ -243,7 +239,6 @@ mwt-api/
 ├── .gitignore                ← lista de lo que Git no debe subir
 ├── .oxlintrc.json            ← reglas del revisor de código (lint)
 ├── .prettierrc               ← reglas de formato del código
-├── AGENTS.md                 ← notas para asistentes de IA que trabajen en el repo
 ├── Dockerfile                ← receta para construir la imagen de la API
 ├── README.md                 ← este documento
 ├── docker-compose.yml        ← define los tres contenedores: db, api y pgadmin
@@ -263,6 +258,7 @@ mwt-api/
 │   ├── 015_theory_results.sql                        ← Theory Lab
 │   ├── 016_theory_progress.sql
 │   ├── 017_seed_experimental_sessions.sql            ← datos: las 18 sesiones
+│   ├── 018_seed_local_test_data.sql                  ← datos de prueba: 6 géneros y 1 usuario
 │   ├── complete/
 │   │   └── mwt_schema.sql    ← todos los scripts juntos en un solo archivo
 │   └── maintenance/
@@ -329,7 +325,6 @@ mwt-api/
 | `nest-cli.json` | Configuración de Nest. `deleteOutDir` borra `dist/` antes de compilar, y el plugin de Swagger documenta los DTO solo. |
 | `tsconfig.json` / `tsconfig.build.json` | Cómo compila TypeScript el proyecto. El segundo solo mira `src/` e ignora los tests. |
 | `vitest.config.ts` / `vitest.config.e2e.ts` | Dónde busca Vitest los tests (`*.spec.ts` y `*.e2e-spec.ts`). |
-| `AGENTS.md` | Notas para herramientas de IA. Una persona no necesita leerlo. |
 
 ---
 
@@ -538,6 +533,7 @@ Los scripts usan `CREATE TABLE IF NOT EXISTS`, así que ejecutarlos dos veces no
 | `015_theory_results.sql` | `theory_results` | Clave: `user_id` + `genre_id` + `item_id`. `kind` (`activity` o `question`), `completed`, `correct`, `answer` (JSON), `score`, `updated_at` |
 | `016_theory_progress.sql` | `theory_progress` | Clave: `user_id` + `genre_id`. `progress` (por ejemplo `1.1.1`), `updated_at` |
 | `017_seed_experimental_sessions.sql` | (solo datos) | Las 18 sesiones del front (`src/data/experimental-sessions/sessions.ts` de `mwt-practicas`). `category` es la carpeta de su ruta (`health`, `corporate`, `focus-mode`, `gaming`, `cultural`); vacía si la sesión aún no tiene página. |
+| `018_seed_local_test_data.sql` | (solo datos) | **Solo para trabajar en local.** Los 6 géneros de Theory Lab con ids del 1 al 6 (1 Funk, 2 Hip-Hop, 3 Música Electrónica, 4 Pop, 5 Rock, 6 R&B, como `src/data/music-theory/genres.ts` de `mwt-practicas`) y un usuario de prueba con `id` 1 (`test@mwt.local`), que la web usará mientras no haya inicio de sesión. Nunca se ejecuta en una base de datos real: los datos reales los carga la empresa. |
 
 ### Por qué hay tan pocas tablas
 
@@ -602,7 +598,7 @@ erDiagram
 
 Docker **ignora las subcarpetas** al crear la base de datos: solo ejecuta los archivos sueltos de `db/`.
 
-- **`complete/mwt_schema.sql`**: todos los scripts (`001` a `017`) unidos en un archivo. Sirve para crear la base de datos **sin Docker**, en una base de datos vacía: se abre en pgAdmin (*Query Tool*) y se ejecuta una vez. No se ejecuta junto con los scripts numerados.
+- **`complete/mwt_schema.sql`**: todos los scripts de tablas y el de las sesiones (`001` a `017`) unidos en un archivo. Los datos de prueba (`018`) no están incluidos: si los quieres, ejecuta después `018_seed_local_test_data.sql`. Sirve para crear la base de datos **sin Docker**, en una base de datos vacía: se abre en pgAdmin (*Query Tool*) y se ejecuta una vez. No se ejecuta junto con los scripts numerados.
 - **`maintenance/drop_old_experimental_tables.sql`**: **borra** las tablas de la primera versión de Experimental Sessions y **todos sus datos**. Solo hace falta en una base de datos que todavía las tenga, y antes del script `012`. Una base de datos nueva de Docker no lo necesita.
 
 ---
@@ -804,7 +800,7 @@ Si el módulo necesita una tabla nueva, antes sigue la sección siguiente.
 
 No usamos una herramienta de migraciones. Las tablas se definen con los scripts de `db/`:
 
-1. Crea un archivo nuevo con el **siguiente número**: `018_nombre.sql`.
+1. Crea un archivo nuevo con el **siguiente número**: `019_nombre.sql`.
 2. Si es una tabla nueva, usa `CREATE TABLE IF NOT EXISTS`.
 3. Si es un cambio en una tabla existente, usa `ALTER TABLE` en un archivo nuevo, para no tocar los anteriores.
 4. Indica en un comentario al principio del archivo de qué otros scripts depende.
@@ -842,7 +838,7 @@ No usamos una herramienta de migraciones. Las tablas se definen con los scripts 
 
 **Hecho**
 
-- Base de datos con las tablas de la empresa y las 5 tablas de Experimental Sessions y Theory Lab, más las 18 sesiones cargadas.
+- Base de datos con las tablas de la empresa y las 5 tablas de Experimental Sessions y Theory Lab, más las 18 sesiones cargadas, y datos de prueba (6 géneros y 1 usuario) para trabajar en local.
 - API con módulos para todas las tablas y documentación en `/docs`.
 - Docker: base de datos, API y pgAdmin con un solo comando.
 - Probado de punta a punta: lo que se envía a la API se guarda y se ve en pgAdmin.
@@ -894,5 +890,5 @@ No usamos una herramienta de migraciones. Las tablas se definen con los scripts 
 | **Contenedor** | Una imagen en marcha. Aquí hay tres: `mwt-db`, `mwt-api` y `mwt-pgadmin`. |
 | **Volumen** | Carpeta que maneja Docker para que los datos no se pierdan al apagar los contenedores. |
 | **Docker Compose** | Herramienta que arranca varios contenedores a la vez a partir de `docker-compose.yml`. |
-| **Seed** | Datos iniciales que se cargan en una tabla (`017_seed_experimental_sessions.sql`). |
+| **Seed** | Datos iniciales que se cargan en una tabla (`017_seed_experimental_sessions.sql`, `018_seed_local_test_data.sql`). |
 | **Migración** | Script que cambia la estructura de la base de datos de forma ordenada. |
